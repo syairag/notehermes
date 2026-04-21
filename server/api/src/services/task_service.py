@@ -11,7 +11,7 @@ def get_tasks(db: Session, user_id: uuid.UUID, status: Optional[str] = None, ski
     return query.offset(skip).limit(limit).all()
 
 def create_task(db: Session, user_id: uuid.UUID, task: TaskCreate) -> Task:
-    db_task = Task(user_id=user_id, **task.dict())
+    db_task = Task(user_id=user_id, **task.model_dump())
     db.add(db_task)
     db.commit()
     db.refresh(db_task)

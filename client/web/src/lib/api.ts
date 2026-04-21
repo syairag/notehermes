@@ -1,0 +1,50 @@
+import axios from "axios";
+import type { Task } from "@/types/task";
+
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  timeout: 10000,
+});
+
+// Map backend snake_case response to frontend camelCase Task type
+function mapTask(raw: Record<string, unknown>): Task {
+  return {
+    id: String(raw.id),
+    title: raw.title as string,
+    description: (raw.description as string) || "",
+    status: (raw.status as Task["status"]) || "todo",
+    priority: (raw.priority as Task["priority"]) || "medium",
+    createdAt: String(raw.created_at),
+    updatedAt: String(raw.updated_at),
+  };
+}
+
+export async function fetchTasks(): Promise<Task[]> {
+  const res = await api.get<Record<string, unknown>[]>("api/v1/tasks");
+  return res.data.map(mapTask);
+}
+
+export async function createTask(data: {
+  title: string;
+  description?: string;
+  priority?: "low" | "medium" | "high";
+}): Promise<Task> {
+  const res = await api.post<Record<string, unknown>>("api/v1/tasks", data);
+  return mapTask(res.data);
+}
+
+export async function updateTaskStatus(
+  id: string,
+  status: Task["status"]
+): Promise<Task> {
+  // Backend uses PUT for status updates
+  const res = await api.put<Record<string, unknown>>(
+    `api/v1/tasks/${id}/status`,
+    { status }
+  );
+  return mapTask(res.data);
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  await api.delete(`api/v1/tasks/${id}`);
+}

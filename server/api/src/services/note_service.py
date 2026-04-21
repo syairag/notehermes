@@ -8,7 +8,7 @@ def get_notes(db: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 20) -
     return db.query(Note).filter(Note.user_id == user_id).offset(skip).limit(limit).all()
 
 def create_note(db: Session, user_id: uuid.UUID, note: NoteCreate) -> Note:
-    db_note = Note(user_id=user_id, **note.dict())
+    db_note = Note(user_id=user_id, **note.model_dump())
     db.add(db_note)
     db.commit()
     db.refresh(db_note)
@@ -20,7 +20,7 @@ def get_note(db: Session, user_id: uuid.UUID, note_id: uuid.UUID) -> Note:
 def update_note(db: Session, user_id: uuid.UUID, note_id: uuid.UUID, note: NoteCreate) -> Note:
     db_note = get_note(db, user_id, note_id)
     if db_note:
-        for key, value in note.dict().items():
+        for key, value in note.model_dump().items():
             setattr(db_note, key, value)
         db.commit()
         db.refresh(db_note)
