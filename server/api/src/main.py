@@ -1,14 +1,22 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from src.database import engine, Base
 from src.routers import emails, notes, tasks, search, auth
 from src.config import settings
+
+# Import models to ensure they are registered with Base
+from src.models import db_models
 
 app = FastAPI(
     title="NoteHermes API",
     description="AI-Driven Smart Workspace Backend",
     version="0.1.0"
 )
+
+# Create tables on startup (Dev only)
+@app.on_event("startup")
+async def startup():
+    Base.metadata.create_all(bind=engine)
 
 # CORS
 app.add_middleware(
