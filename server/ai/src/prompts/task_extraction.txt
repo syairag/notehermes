@@ -1,0 +1,4 @@
+Extract actionable tasks from the following text. Return as JSON list with title, due_date, priority.
+
+Text:
+{text}

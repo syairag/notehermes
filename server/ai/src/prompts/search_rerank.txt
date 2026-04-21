@@ -1,0 +1,6 @@
+Given the query and the retrieved documents, rank them by relevance.
+
+Query: {query}
+
+Documents:
+{docs}

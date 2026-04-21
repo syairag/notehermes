@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: notehermes-postgres
+    environment:
+      POSTGRES_USER: notehermes
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: notehermes
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notehermes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: notehermes-redis
+    ports: ["6379:6379"]
+    volumes: ["redisdata:/data"]
+
+  api:
+    build:
+      context: ../server/api
+      dockerfile: ../../infra/Dockerfile.api
+    container_name: notehermes-api
+    ports: ["8000:8000"]
+    environment:
+      DATABASE_URL: postgresql://notehermes:dev_password@postgres:5432/notehermes
+      REDIS_URL: redis://redis:6379
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openrouter}
+      AI_SERVICE_URL: http://ai:8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ai:
+        condition: service_started
+
+  ai:
+    build:
+      context: ../server/ai
+      dockerfile: ../../infra/Dockerfile.ai
+    container_name: notehermes-ai
+    ports: ["8001:8001"]
+    environment:
+      LLM_API_KEY: ${LLM_API_KEY}
+      EMBEDDING_MODEL: text-embedding-3-small
+
+volumes:
+  pgdata:
+  redisdata:

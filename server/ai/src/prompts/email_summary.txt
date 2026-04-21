@@ -1,0 +1,4 @@
+You are an AI assistant. Summarize the following email in 3 bullet points.
+
+Email:
+{text}

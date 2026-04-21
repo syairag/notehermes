@@ -1,0 +1,4 @@
+Suggest 3-5 relevant tags for the following note content.
+
+Note:
+{text}
