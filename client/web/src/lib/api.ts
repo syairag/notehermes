@@ -48,3 +48,47 @@ export async function updateTaskStatus(
 export async function deleteTask(id: string): Promise<void> {
   await api.delete(`api/v1/tasks/${id}`);
 }
+
+// --- Email types ---
+
+export interface Email {
+  id: string;
+  subject: string;
+  sender: string;
+  date: string;
+  hasAISummary: boolean;
+  summary: string;
+}
+
+export async function getEmails(): Promise<Email[]> {
+  const res = await api.get<Record<string, unknown>[]>("api/v1/emails/");
+  return res.data.map((raw: Record<string, unknown>) => ({
+    id: String(raw.id),
+    subject: (raw.subject as string) || "",
+    sender: (raw.sender as string) || "",
+    date: String(raw.date || raw.created_at || ""),
+    hasAISummary: Boolean(raw.has_ai_summary || raw.summary),
+    summary: (raw.summary as string) || "",
+  }));
+}
+
+// --- Note types ---
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  date: string;
+}
+
+export async function getNotes(): Promise<Note[]> {
+  const res = await api.get<Record<string, unknown>[]>("api/v1/notes/");
+  return res.data.map((raw: Record<string, unknown>) => ({
+    id: String(raw.id),
+    title: (raw.title as string) || "",
+    content: (raw.content as string) || "",
+    tags: (raw.tags as string[]) || [],
+    date: String(raw.date || raw.created_at || ""),
+  }));
+}
