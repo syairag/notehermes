@@ -10,6 +10,7 @@
 - **代号：** `backend-ai-eng`
 - **优先级：** 🔴 最高（MVP 核心）
 - **招聘时间：** Week 1（与项目同步启动）
+- **专属 AI 模型：** `qwen3-coder-next`（最新代码模型，擅长 SQL/API 生成）
 
 ### 核心职责
 1. FastAPI 后端服务开发（邮箱、笔记、任务三大模块 API）
@@ -22,7 +23,8 @@
 ```yaml
 必需技能:
   - Python 3.11+（FastAPI / Pydantic / SQLAlchemy）
-  - LLM API 集成（OpenAI / Anthropic / Qwen / OpenRouter）
+  - LLM API 集成（DashScope / 通义灵码 Coding 通道）
+  - 配置专属模型：qwen3-coder-next
   - 向量数据库（pgvector / Milvus / Weaviate）
   - IMAP/SMTP 协议
   - PostgreSQL 15+（JSONB / 事务 / 索引优化）
@@ -50,6 +52,7 @@
 - **代号：** `frontend-client-eng`
 - **优先级：** 🔴 最高（与后端并行）
 - **招聘时间：** Week 1
+- **专属 AI 模型：** `qwen3.6-plus`（视觉理解 + 深度思考，擅长 UI 还原）
 
 ### 核心职责
 1. HarmonyOS NEXT 客户端开发（ArkTS/ArkUI）
@@ -95,6 +98,7 @@
 - **代号：** `ai-engineer`
 - **优先级：** 🟡 次优先级（但需提前介入）
 - **招聘时间：** Week 2（后端 API 框架搭建后立即介入）
+- **专属 AI 模型：** `glm-5`（深度思考，擅长 Prompt 调优与逻辑推理）
 
 ### 核心职责
 1. Prompt 工程：邮件摘要、任务提取、笔记标签、搜索重排
@@ -134,6 +138,7 @@
 - **代号：** `qa-engineer`
 - **优先级：** 🟡 次优先级
 - **招聘时间：** Week 3（开发中期介入，编写用例 + 早期测试）
+- **专属 AI 模型：** `MiniMax-M2.5`（极速深度思考，适合批量生成用例）
 
 ### 核心职责
 1. 功能测试（邮箱接入、笔记编辑、任务流转全流程）
