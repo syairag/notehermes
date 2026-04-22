@@ -1,115 +1,189 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getEmails, type Email } from "@/lib/api";
+import { getEmails, syncEmails, type Email } from "@/lib/api";
+
+const emailProviders = [
+  { id: "outlook", name: "Microsoft 365 / Outlook", icon: "🔵", desc: "个人/企业 Outlook 邮箱", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@outlook.com" }, { key: "password", label: "应用密码", type: "password", placeholder: "在 Microsoft 账户中生成" }] },
+  { id: "china365", name: "世纪互联 Microsoft 365", icon: "🟢", desc: "国内版 21Vianet 运营", fields: [{ key: "email", label: "企业邮箱", type: "email", placeholder: "you@company.partner.onmschina.cn" }, { key: "password", label: "密码", type: "password", placeholder: "企业账号密码" }] },
+  { id: "gmail", name: "Google Gmail", icon: "🔴", desc: "个人 Gmail 邮箱", fields: [{ key: "email", label: "Gmail 地址", type: "email", placeholder: "you@gmail.com" }, { key: "password", label: "应用专用密码", type: "password", placeholder: "Google 账户 → 安全性 → 应用专用密码" }] },
+  { id: "qq", name: "QQ 邮箱", icon: "🟡", desc: "QQ / Foxmail 邮箱", fields: [{ key: "email", label: "QQ 邮箱", type: "email", placeholder: "your_qq@qq.com" }, { key: "password", label: "授权码", type: "password", placeholder: "设置 → 账户 → IMAP/SMTP 开启 → 获取授权码" }] },
+  { id: "netease", name: "网易邮箱 (163/126)", icon: "🟠", desc: "163 / 126 / yeah.net", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@163.com" }, { key: "password", label: "授权码", type: "password", placeholder: "设置 → POP3/SMTP/IMAP → 开启并获取授权码" }] },
+  { id: "imap", name: "自定义 IMAP", icon: "⚙️", desc: "手动配置 IMAP/SMTP", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.com" }, { key: "imap_host", label: "IMAP 服务器", type: "text", placeholder: "imap.company.com" }, { key: "imap_port", label: "IMAP 端口", type: "text", placeholder: "993" }, { key: "password", label: "密码", type: "password", placeholder: "邮箱密码或授权码" }] },
+];
 
 export default function InboxPage() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState("outlook");
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
 
-  useEffect(() => {
+  const loadEmails = () => {
     getEmails()
-      .then((data) => {
-        setEmails(data);
-        setError(null);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch emails:", err);
-        setError("Failed to load emails");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+      .then((data) => { setEmails(data); setError(null); })
+      .catch(() => { setError("邮件加载失败"); })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadEmails(); }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try { await syncEmails(); loadEmails(); }
+    catch { setError("同步失败"); }
+    finally { setSyncing(false); }
+  };
+
+  const currentProvider = emailProviders.find(p => p.id === selectedProvider);
 
   return (
-    <div>
+    <div style={{ fontFamily: "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">📧 Inbox</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Your emails with AI-powered summaries
-        </p>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">📬</span>
+          <div>
+            <h1 className="text-[30px] font-semibold text-[#1d1d1f] leading-tight">收件箱</h1>
+            <p className="text-sm text-[#9b9b9b] mt-0.5">管理您的邮件与 AI 摘要</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-1.5 bg-[#1d1d1f] hover:bg-[#2d2d2f] disabled:bg-[#9b9b9b] text-white px-3.5 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            {syncing ? (
+              <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {syncing ? "同步中" : "同步"}
+          </button>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-medium transition-colors border ${showSettings ? "bg-[#e8e8e6] border-[#d4d4d2] text-[#1d1d1f]" : "bg-white border-[#e9e9e7] text-[#5e5e5e] hover:bg-[#f7f7f5] hover:text-[#1d1d1f]"}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            邮箱设置
+          </button>
+        </div>
       </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-gray-500">Loading...</p>
+      {/* Email Settings Panel - Notion style */}
+      {showSettings && (
+        <div className="mb-8 bg-[#f7f7f5] border border-[#e9e9e7] rounded-lg p-5">
+          <h3 className="text-sm font-semibold text-[#1d1d1f] mb-4">选择邮箱类型</h3>
+
+          {/* Provider Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
+            {emailProviders.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => { setSelectedProvider(p.id); setFieldValues({}); }}
+                className={`text-left p-3 rounded-md border transition-all ${selectedProvider === p.id ? "border-[#1d1d1f] bg-white shadow-sm" : "border-[#e9e9e7] bg-white hover:border-[#d4d4d2]"}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{p.icon}</span>
+                  <div>
+                    <p className="text-sm font-medium text-[#1d1d1f]">{p.name}</p>
+                    <p className="text-[11px] text-[#9b9b9b]">{p.desc}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Provider Config Form */}
+          {currentProvider && (
+            <div className="bg-white border border-[#e9e9e7] rounded-lg p-4">
+              <h4 className="text-sm font-medium text-[#1d1d1f] mb-3 flex items-center gap-2">
+                <span>{currentProvider.icon}</span>
+                配置 {currentProvider.name}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {currentProvider.fields.map((f) => (
+                  <div key={f.key}>
+                    <label className="block text-xs text-[#9b9b9b] mb-1">{f.label}</label>
+                    <input
+                      type={f.type}
+                      value={fieldValues[f.key] || ""}
+                      onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button className="bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors">
+                  保存配置
+                </button>
+                <button onClick={() => setShowSettings(false)} className="text-[#5e5e5e] hover:text-[#1d1d1f] px-3 py-1.5 rounded-md text-sm transition-colors">
+                  取消
+                </button>
+              </div>
+              <p className="text-[11px] text-[#9b9b9b] mt-3">
+                💡 授权码不是登录密码。请在邮箱设置中开启 IMAP/SMTP 服务后获取专用授权码。
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Error State */}
-      {error && !loading && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-          <p className="text-red-600 text-sm">{error}</p>
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 bg-[#fef3f2] border border-[#fecdca] text-[#c22] px-4 py-3 rounded-lg text-sm">{error}</div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-6 h-6 border-2 border-[#e9e9e7] border-t-[#1d1d1f] rounded-full animate-spin" />
+            <p className="text-xs text-[#9b9b9b]">加载中...</p>
+          </div>
         </div>
       )}
 
       {/* Empty State */}
       {!loading && !error && emails.length === 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
-          <p className="text-gray-500">Empty Inbox</p>
+        <div className="text-center py-20">
+          <div className="text-5xl mb-4">📭</div>
+          <p className="text-[#9b9b9b] text-base mb-1">收件箱为空</p>
+          <p className="text-[#9b9b9b] text-sm mb-4">请先在上方「邮箱设置」中配置您的邮箱账户</p>
+          <button onClick={handleSync} className="text-[#1d1d1f] text-sm font-medium underline underline-offset-2 hover:opacity-70 transition-opacity">
+            立即同步
+          </button>
         </div>
       )}
 
-      {/* Email List */}
+      {/* Email List - Notion table style */}
       {!loading && !error && emails.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
           {emails.map((email, index) => (
-            <div
-              key={email.id}
-              className={`flex flex-col sm:flex-row sm:items-center gap-2 px-5 py-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                index !== emails.length - 1 ? "border-b border-gray-100" : ""
-              }`}
-            >
-              {/* AI Summary Badge */}
-              <div className="flex items-center gap-3 shrink-0 w-28">
-                {email.hasAISummary && (
-                  <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">
-                    🤖 AI
-                  </span>
-                )}
-              </div>
-
-              {/* Subject */}
+            <div key={email.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-[#f7f7f5] transition-colors cursor-pointer ${index !== emails.length - 1 ? "border-b border-[#e9e9e7]" : ""}`}>
+              {email.hasAISummary && (
+                <span className="shrink-0 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">AI</span>
+              )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {email.subject}
-                </p>
-                <p className="text-xs text-gray-500 truncate">{email.sender}</p>
+                <p className="text-sm font-medium text-[#1d1d1f] truncate">{email.subject}</p>
+                <p className="text-xs text-[#9b9b9b] truncate">{email.sender}</p>
               </div>
-
-              {/* Date */}
-              <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
-                {email.date}
-              </span>
+              <span className="text-xs text-[#9b9b9b] whitespace-nowrap">{email.date}</span>
             </div>
           ))}
-
-          {/* AI Summary Panel (shown for emails that have it) */}
-          {emails
-            .filter((e) => e.hasAISummary)
-            .slice(0, 1)
-            .map((email) => (
-              <div
-                key={`summary-${email.id}`}
-                className="border-t border-purple-100 bg-purple-50/50 px-5 py-4"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-lg shrink-0 mt-0.5">🤖</span>
-                  <div>
-                    <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">
-                      AI Summary
-                    </p>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      {email.summary}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
         </div>
       )}
     </div>

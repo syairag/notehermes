@@ -14,6 +14,12 @@ async def get_email(email_id: str):
     # TODO: Fetch from DB
     raise HTTPException(status_code=404, detail="Email not found")
 
+@router.post("/sync")
+async def sync_emails():
+    """Trigger email synchronization (placeholder)"""
+    # TODO: Connect to actual email service
+    return {"status": "sync_started", "synced": 0, "message": "邮箱同步功能需要配置邮箱账户"}
+
 @router.post("/summarize/{email_id}")
 async def summarize_email(email_id: str):
     # TODO: Call AI service

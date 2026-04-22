@@ -20,7 +20,7 @@ function mapTask(raw: Record<string, unknown>): Task {
 }
 
 export async function fetchTasks(): Promise<Task[]> {
-  const res = await api.get<Record<string, unknown>[]>("api/v1/tasks");
+  const res = await api.get<Record<string, unknown>>("api/v1/tasks");
   return res.data.map(mapTask);
 }
 
@@ -37,7 +37,6 @@ export async function updateTaskStatus(
   id: string,
   status: Task["status"]
 ): Promise<Task> {
-  // Backend uses PUT for status updates
   const res = await api.put<Record<string, unknown>>(
     `api/v1/tasks/${id}/status`,
     { status }
@@ -61,7 +60,7 @@ export interface Email {
 }
 
 export async function getEmails(): Promise<Email[]> {
-  const res = await api.get<Record<string, unknown>[]>("api/v1/emails/");
+  const res = await api.get<Record<string, unknown>>("api/v1/emails/");
   return res.data.map((raw: Record<string, unknown>) => ({
     id: String(raw.id),
     subject: (raw.subject as string) || "",
@@ -70,6 +69,11 @@ export async function getEmails(): Promise<Email[]> {
     hasAISummary: Boolean(raw.has_ai_summary || raw.summary),
     summary: (raw.summary as string) || "",
   }));
+}
+
+export async function syncEmails(): Promise<{ synced: number }> {
+  const res = await api.post<Record<string, unknown>>("api/v1/emails/sync");
+  return { synced: Number(res.data.synced ?? 0) };
 }
 
 // --- Note types ---
@@ -83,7 +87,7 @@ export interface Note {
 }
 
 export async function getNotes(): Promise<Note[]> {
-  const res = await api.get<Record<string, unknown>[]>("api/v1/notes/");
+  const res = await api.get<Record<string, unknown>>("api/v1/notes/");
   return res.data.map((raw: Record<string, unknown>) => ({
     id: String(raw.id),
     title: (raw.title as string) || "",
@@ -91,4 +95,23 @@ export async function getNotes(): Promise<Note[]> {
     tags: (raw.tags as string[]) || [],
     date: String(raw.date || raw.created_at || ""),
   }));
+}
+
+export async function createNote(data: {
+  title: string;
+  content: string;
+  tags?: string[];
+}): Promise<Note> {
+  const res = await api.post<Record<string, unknown>>("api/v1/notes/", data);
+  return {
+    id: String(res.data.id),
+    title: (res.data.title as string) || "",
+    content: (res.data.content as string) || "",
+    tags: (res.data.tags as string[]) || [],
+    date: String(res.data.date || res.data.created_at || ""),
+  };
+}
+
+export async function deleteNote(id: string): Promise<void> {
+  await api.delete(`api/v1/notes/${id}`);
 }

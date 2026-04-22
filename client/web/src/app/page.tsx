@@ -1,1 +1,5 @@
-export default function Home() { return <main className='flex items-center justify-center h-screen'><h1 className='text-4xl font-bold'>NoteHermes</h1></main>; }
+import { redirect } from 'next/navigation';
+
+export default function Home() {
+  redirect('/inbox');
+}
