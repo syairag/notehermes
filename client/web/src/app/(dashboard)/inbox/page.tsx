@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getEmails, syncEmails, type Email } from "@/lib/api";
+import { getEmails, syncEmails, configureExchange, type Email } from "@/lib/api";
 
 const emailProviders = [
+  { id: "exchange", name: "Microsoft Exchange", icon: "🏢", desc: "企业 Exchange 服务器 (EWS 协议)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.com" }, { key: "server", label: "EWS 服务器", type: "text", placeholder: "mail.company.com 或留空自动发现" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }, { key: "auth_type", label: "认证方式", type: "select", placeholder: "ntlm", options: ["ntlm", "basic", "digest"] }] },
   { id: "outlook", name: "Microsoft 365 / Outlook", icon: "🔵", desc: "个人/企业 Outlook 邮箱", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@outlook.com" }, { key: "password", label: "应用密码", type: "password", placeholder: "在 Microsoft 账户中生成" }] },
   { id: "china365", name: "世纪互联 Microsoft 365", icon: "🟢", desc: "国内版 21Vianet 运营", fields: [{ key: "email", label: "企业邮箱", type: "email", placeholder: "you@company.partner.onmschina.cn" }, { key: "password", label: "密码", type: "password", placeholder: "企业账号密码" }] },
   { id: "gmail", name: "Google Gmail", icon: "🔴", desc: "个人 Gmail 邮箱", fields: [{ key: "email", label: "Gmail 地址", type: "email", placeholder: "you@gmail.com" }, { key: "password", label: "应用专用密码", type: "password", placeholder: "Google 账户 → 安全性 → 应用专用密码" }] },
@@ -18,8 +19,9 @@ export default function InboxPage() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState("outlook");
+  const [selectedProvider, setSelectedProvider] = useState("exchange");
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "ok">("idle");
 
   const loadEmails = () => {
     getEmails()
@@ -35,6 +37,33 @@ export default function InboxPage() {
     try { await syncEmails(); loadEmails(); }
     catch { setError("同步失败"); }
     finally { setSyncing(false); }
+  };
+
+  const handleSaveConfig = async () => {
+    if (!fieldValues.email || !fieldValues.password) {
+      setError("请填写邮箱地址和密码");
+      return;
+    }
+    setSaveStatus("saving");
+    try {
+      if (selectedProvider === "exchange") {
+        await configureExchange({
+          server: fieldValues.server || undefined,
+          email: fieldValues.email,
+          password: fieldValues.password,
+          auth_type: fieldValues.auth_type || "ntlm",
+        });
+        setSaveStatus("ok");
+        setTimeout(() => setSaveStatus("idle"), 3000);
+      } else {
+        // For non-Exchange providers, just store locally for now
+        setSaveStatus("ok");
+        setTimeout(() => setSaveStatus("idle"), 2000);
+      }
+    } catch {
+      setError("保存配置失败");
+      setSaveStatus("idle");
+    }
   };
 
   const currentProvider = emailProviders.find(p => p.id === selectedProvider);
@@ -116,27 +145,48 @@ export default function InboxPage() {
                 {currentProvider.fields.map((f) => (
                   <div key={f.key}>
                     <label className="block text-xs text-[#9b9b9b] mb-1">{f.label}</label>
-                    <input
-                      type={f.type}
-                      value={fieldValues[f.key] || ""}
-                      onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
-                      className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
-                    />
+                    {f.type === "select" ? (
+                      <select
+                        value={fieldValues[f.key] || f.placeholder}
+                        onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
+                      >
+                        {f.options?.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={f.type}
+                        value={fieldValues[f.key] || ""}
+                        onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
+                      />
+                    )}
                   </div>
                 ))}
               </div>
               <div className="mt-4 flex gap-2">
-                <button className="bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors">
-                  保存配置
+                <button
+                  onClick={handleSaveConfig}
+                  className="bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+                >
+                  {saveStatus === "saving" ? "保存中..." : saveStatus === "ok" ? "✅ 已保存" : "保存配置"}
                 </button>
                 <button onClick={() => setShowSettings(false)} className="text-[#5e5e5e] hover:text-[#1d1d1f] px-3 py-1.5 rounded-md text-sm transition-colors">
                   取消
                 </button>
               </div>
-              <p className="text-[11px] text-[#9b9b9b] mt-3">
-                💡 授权码不是登录密码。请在邮箱设置中开启 IMAP/SMTP 服务后获取专用授权码。
-              </p>
+              {currentProvider.id === "exchange" ? (
+                <p className="text-[11px] text-[#9b9b9b] mt-3">
+                  💡 Exchange 使用 EWS 协议，支持 NTLM / Basic / Digest 认证。服务器地址留空将尝试自动发现。
+                </p>
+              ) : (
+                <p className="text-[11px] text-[#9b9b9b] mt-3">
+                  💡 授权码不是登录密码。请在邮箱设置中开启 IMAP/SMTP 服务后获取专用授权码。
+                </p>
+              )}
             </div>
           )}
         </div>

@@ -71,9 +71,20 @@ export async function getEmails(): Promise<Email[]> {
   }));
 }
 
-export async function syncEmails(): Promise<{ synced: number }> {
+export async function syncEmails(): Promise<{ synced: number; message?: string; emails?: unknown[] }> {
   const res = await api.post<Record<string, unknown>>("api/v1/emails/sync");
-  return { synced: Number(res.data.synced ?? 0) };
+  return { synced: Number(res.data.synced ?? 0), message: res.data.message as string, emails: res.data.emails as unknown[] };
+}
+
+export async function configureExchange(data: {
+  server?: string;
+  email: string;
+  password: string;
+  auth_type?: string;
+  limit?: number;
+}): Promise<{ status: string; email: string }> {
+  const res = await api.post<Record<string, unknown>>("api/v1/emails/configure/exchange", data);
+  return { status: res.data.status as string, email: res.data.email as string };
 }
 
 // --- Note types ---
