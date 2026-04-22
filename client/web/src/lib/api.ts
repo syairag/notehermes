@@ -1,9 +1,19 @@
 import axios from "axios";
 import type { Task } from "@/types/task";
 
+// 动态获取后端地址：
+// - 浏览器端：使用当前页面的主机名，端口改为 8000
+// - SSR 端：使用环境变量或默认 localhost
+function getBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
-  timeout: 10000,
+  baseURL: getBaseUrl(),
+  timeout: 15000,
 });
 
 // Map backend snake_case response to frontend camelCase Task type
@@ -20,7 +30,7 @@ function mapTask(raw: Record<string, unknown>): Task {
 }
 
 export async function fetchTasks(): Promise<Task[]> {
-  const res = await api.get<Record<string, unknown>>("api/v1/tasks");
+  const res = await api.get<Record<string, unknown>>("/api/v1/tasks");
   return res.data.map(mapTask);
 }
 
@@ -29,7 +39,7 @@ export async function createTask(data: {
   description?: string;
   priority?: "low" | "medium" | "high";
 }): Promise<Task> {
-  const res = await api.post<Record<string, unknown>>("api/v1/tasks", data);
+  const res = await api.post<Record<string, unknown>>("/api/v1/tasks", data);
   return mapTask(res.data);
 }
 
@@ -38,14 +48,14 @@ export async function updateTaskStatus(
   status: Task["status"]
 ): Promise<Task> {
   const res = await api.put<Record<string, unknown>>(
-    `api/v1/tasks/${id}/status`,
+    `/api/v1/tasks/${id}/status`,
     { status }
   );
   return mapTask(res.data);
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  await api.delete(`api/v1/tasks/${id}`);
+  await api.delete(`/api/v1/tasks/${id}`);
 }
 
 // --- Email types ---
@@ -60,7 +70,7 @@ export interface Email {
 }
 
 export async function getEmails(): Promise<Email[]> {
-  const res = await api.get<Record<string, unknown>>("api/v1/emails/");
+  const res = await api.get<Record<string, unknown>>("/api/v1/emails/");
   return res.data.map((raw: Record<string, unknown>) => ({
     id: String(raw.id),
     subject: (raw.subject as string) || "",
@@ -72,7 +82,7 @@ export async function getEmails(): Promise<Email[]> {
 }
 
 export async function syncEmails(): Promise<{ synced: number; message?: string; emails?: unknown[] }> {
-  const res = await api.post<Record<string, unknown>>("api/v1/emails/sync");
+  const res = await api.post<Record<string, unknown>>("/api/v1/emails/sync");
   return { synced: Number(res.data.synced ?? 0), message: res.data.message as string, emails: res.data.emails as unknown[] };
 }
 
@@ -83,7 +93,7 @@ export async function configureExchange(data: {
   auth_type?: string;
   limit?: number;
 }): Promise<{ status: string; email: string }> {
-  const res = await api.post<Record<string, unknown>>("api/v1/emails/configure/exchange", data);
+  const res = await api.post<Record<string, unknown>>("/api/v1/emails/configure/exchange", data);
   return { status: res.data.status as string, email: res.data.email as string };
 }
 
@@ -98,7 +108,7 @@ export interface Note {
 }
 
 export async function getNotes(): Promise<Note[]> {
-  const res = await api.get<Record<string, unknown>>("api/v1/notes/");
+  const res = await api.get<Record<string, unknown>>("/api/v1/notes/");
   return res.data.map((raw: Record<string, unknown>) => ({
     id: String(raw.id),
     title: (raw.title as string) || "",
@@ -113,7 +123,7 @@ export async function createNote(data: {
   content: string;
   tags?: string[];
 }): Promise<Note> {
-  const res = await api.post<Record<string, unknown>>("api/v1/notes/", data);
+  const res = await api.post<Record<string, unknown>>("/api/v1/notes/", data);
   return {
     id: String(res.data.id),
     title: (res.data.title as string) || "",
@@ -124,5 +134,5 @@ export async function createNote(data: {
 }
 
 export async function deleteNote(id: string): Promise<void> {
-  await api.delete(`api/v1/notes/${id}`);
+  await api.delete(`/api/v1/notes/${id}`);
 }
