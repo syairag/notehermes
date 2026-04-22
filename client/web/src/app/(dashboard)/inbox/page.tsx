@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { getEmails, syncEmails, configureExchange, type Email } from "@/lib/api";
 
 const emailProviders = [
-  { id: "exchange", name: "Microsoft Exchange", icon: "🏢", desc: "企业 Exchange 服务器 (EWS 协议)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.com" }, { key: "server", label: "EWS 服务器", type: "text", placeholder: "mail.company.com 或留空自动发现" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }, { key: "auth_type", label: "认证方式", type: "select", placeholder: "ntlm", options: ["ntlm", "basic", "digest"] }] },
-  { id: "outlook", name: "Microsoft 365 / Outlook", icon: "🔵", desc: "个人/企业 Outlook 邮箱", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@outlook.com" }, { key: "password", label: "应用密码", type: "password", placeholder: "在 Microsoft 账户中生成" }] },
-  { id: "china365", name: "世纪互联 Microsoft 365", icon: "🟢", desc: "国内版 21Vianet 运营", fields: [{ key: "email", label: "企业邮箱", type: "email", placeholder: "you@company.partner.onmschina.cn" }, { key: "password", label: "密码", type: "password", placeholder: "企业账号密码" }] },
+  { id: "exchange", name: "Microsoft Exchange", icon: "🏢", desc: "企业自建 Exchange 服务器 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.com" }, { key: "server", label: "EWS 地址", type: "text", placeholder: "https://mail.company.com/EWS/Exchange.asmx" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }, { key: "auth_type", label: "认证方式", type: "select", placeholder: "ntlm", options: ["ntlm", "basic", "digest"] }] },
+  { id: "china365", name: "世纪互联 Microsoft 365", icon: "🇨🇳", desc: "国内版 Exchange Online (EWS)", fields: [{ key: "email", label: "企业邮箱", type: "email", placeholder: "you@company.partner.onmschina.cn" }, { key: "password", label: "密码", type: "password", placeholder: "企业账号密码" }] },
+  { id: "outlook", name: "Microsoft 365 国际版", icon: "🔵", desc: "Exchange Online 国际版 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@outlook.com" }, { key: "password", label: "应用密码", type: "password", placeholder: "在 Microsoft 账户中生成" }] },
   { id: "gmail", name: "Google Gmail", icon: "🔴", desc: "个人 Gmail 邮箱", fields: [{ key: "email", label: "Gmail 地址", type: "email", placeholder: "you@gmail.com" }, { key: "password", label: "应用专用密码", type: "password", placeholder: "Google 账户 → 安全性 → 应用专用密码" }] },
   { id: "qq", name: "QQ 邮箱", icon: "🟡", desc: "QQ / Foxmail 邮箱", fields: [{ key: "email", label: "QQ 邮箱", type: "email", placeholder: "your_qq@qq.com" }, { key: "password", label: "授权码", type: "password", placeholder: "设置 → 账户 → IMAP/SMTP 开启 → 获取授权码" }] },
   { id: "netease", name: "网易邮箱 (163/126)", icon: "🟠", desc: "163 / 126 / yeah.net", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@163.com" }, { key: "password", label: "授权码", type: "password", placeholder: "设置 → POP3/SMTP/IMAP → 开启并获取授权码" }] },
@@ -46,9 +46,14 @@ export default function InboxPage() {
     }
     setSaveStatus("saving");
     try {
-      if (selectedProvider === "exchange") {
+      // All Exchange-based providers go through the same EWS endpoint
+      if (selectedProvider === "exchange" || selectedProvider === "china365" || selectedProvider === "outlook") {
         await configureExchange({
-          server: fieldValues.server || undefined,
+          server: selectedProvider === "china365"
+            ? "https://partner.outlook.cn/EWS/Exchange.asmx"
+            : selectedProvider === "outlook"
+              ? "https://outlook.office365.com/EWS/Exchange.asmx"
+              : fieldValues.server || undefined,
           email: fieldValues.email,
           password: fieldValues.password,
           auth_type: fieldValues.auth_type || "ntlm",
@@ -56,7 +61,6 @@ export default function InboxPage() {
         setSaveStatus("ok");
         setTimeout(() => setSaveStatus("idle"), 3000);
       } else {
-        // For non-Exchange providers, just store locally for now
         setSaveStatus("ok");
         setTimeout(() => setSaveStatus("idle"), 2000);
       }
@@ -180,7 +184,15 @@ export default function InboxPage() {
               </div>
               {currentProvider.id === "exchange" ? (
                 <p className="text-[11px] text-[#9b9b9b] mt-3">
-                  💡 Exchange 使用 EWS 协议，支持 NTLM / Basic / Digest 认证。服务器地址留空将尝试自动发现。
+                  💡 Exchange 使用 EWS 协议，支持 NTLM / Basic / Digest 认证。EWS 地址留空将尝试自动发现。
+                </p>
+              ) : currentProvider.id === "china365" ? (
+                <p className="text-[11px] text-[#9b9b9b] mt-3">
+                  💡 世纪互联邮箱使用 EWS 协议，端点为 <code className="text-[#5e5e5e]">partner.outlook.cn</code>。无需手动配置服务器地址。
+                </p>
+              ) : currentProvider.id === "outlook" ? (
+                <p className="text-[11px] text-[#9b9b9b] mt-3">
+                  💡 国际版 Microsoft 365 使用 EWS 协议，端点为 <code className="text-[#5e5e5e]">outlook.office365.com</code>。
                 </p>
               ) : (
                 <p className="text-[11px] text-[#9b9b9b] mt-3">

@@ -31,28 +31,40 @@ async def get_email(email_id: str):
 
 @router.post("/sync")
 async def sync_emails():
-    """Sync emails — requires Exchange config to be set first via /emails/configure/exchange"""
+    """Sync emails via EWS (Exchange Web Services)."""
     if not _exchange_config:
         return {
             "status": "no_config",
             "synced": 0,
-            "message": "请先配置邮箱（支持 Exchange / IMAP）",
+            "message": "请先在邮箱设置中配置 Exchange 账户",
         }
 
     provider = _exchange_config.get("provider")
 
-    if provider == "exchange":
+    if provider in ("exchange", "china365", "outlook"):
         try:
             ex = ExchangeService()
+
+            # Determine EWS endpoint based on provider
+            if provider == "china365":
+                server = "https://partner.outlook.cn/EWS/Exchange.asmx"
+            elif provider == "outlook":
+                server = "https://outlook.office365.com/EWS/Exchange.asmx"
+            else:
+                server = _exchange_config.get("server", "")
+
+            auth_type = _exchange_config.get("auth_type", "ntlm")
+
             ex.connect(
-                server=_exchange_config.get("server", ""),
+                server=server,
                 email=_exchange_config["email"],
                 password=_exchange_config["password"],
-                auth_type=_exchange_config.get("auth_type", "ntlm"),
+                auth_type=auth_type,
             )
             emails = ex.fetch_emails(limit=_exchange_config.get("limit", 20))
             return {
                 "status": "success",
+                "provider": provider,
                 "synced": len(emails),
                 "emails": emails,
             }
@@ -60,13 +72,13 @@ async def sync_emails():
             return {
                 "status": "error",
                 "synced": 0,
-                "message": f"Exchange 同步失败: {str(e)}",
+                "message": f"EWS 同步失败: {str(e)}",
             }
     else:
         return {
             "status": "not_implemented",
             "synced": 0,
-            "message": f"{provider} 同步功能开发中",
+            "message": f"{provider} 功能开发中",
         }
 
 
