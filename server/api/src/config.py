@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "dev-secret-change-in-prod"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "http://192.168.5.11:3000", "http://192.168.5.11:8000"]
     
     # Microsoft 365 Configuration (Century Internet / 21Vianet for China)
     USE_CHINA_M365: bool = False  # Set to True to use partner.outlook.cn

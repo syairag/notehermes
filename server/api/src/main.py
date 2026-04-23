@@ -18,11 +18,11 @@ app = FastAPI(
 async def startup():
     Base.metadata.create_all(bind=engine)
 
-# CORS
+# CORS - Allow all origins in dev mode
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Must be False with allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
