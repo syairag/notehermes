@@ -5,7 +5,7 @@ import { getEmails, syncEmails, configureExchange, type Email } from "@/lib/api"
 
 const emailProviders = [
   { id: "exchange", name: "Microsoft Exchange", icon: "🏢", desc: "企业自建 Exchange 服务器 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.com" }, { key: "server", label: "EWS 地址", type: "text", placeholder: "https://mail.company.com/EWS/Exchange.asmx" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }, { key: "auth_type", label: "认证方式", type: "select", placeholder: "ntlm", options: ["ntlm", "basic", "digest"] }] },
-  { id: "china365", name: "世纪互联 Microsoft 365", icon: "🇨🇳", desc: "国内版 Microsoft 365 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.partner.onmschina.cn" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }] },
+  { id: "china365", name: "世纪互联 Microsoft 365 / 自建 Exchange", icon: "🇨🇳", desc: "国内版 M365 或 世纪互联托管 Exchange (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.com" }, { key: "server", label: "EWS 服务器地址（可选）", type: "text", placeholder: "留空则使用 partner.outlook.cn" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }, { key: "auth_type", label: "认证方式", type: "select", placeholder: "ntlm", options: ["ntlm", "basic", "digest"] }] },
   { id: "outlook", name: "Microsoft 365 国际版", icon: "🔵", desc: "Exchange Online 国际版 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@outlook.com" }, { key: "password", label: "应用密码", type: "password", placeholder: "在 Microsoft 账户中生成" }] },
   { id: "gmail", name: "Google Gmail", icon: "🔴", desc: "个人 Gmail 邮箱", fields: [{ key: "email", label: "Gmail 地址", type: "email", placeholder: "you@gmail.com" }, { key: "password", label: "应用专用密码", type: "password", placeholder: "Google 账户 → 安全性 → 应用专用密码" }] },
   { id: "qq", name: "QQ 邮箱", icon: "🟡", desc: "QQ / Foxmail 邮箱", fields: [{ key: "email", label: "QQ 邮箱", type: "email", placeholder: "your_qq@qq.com" }, { key: "password", label: "授权码", type: "password", placeholder: "设置 → 账户 → IMAP/SMTP 开启 → 获取授权码" }] },
@@ -49,12 +49,17 @@ export default function InboxPage() {
     try {
       // All Exchange-based providers go through the same EWS endpoint
       if (selectedProvider === "exchange" || selectedProvider === "outlook" || selectedProvider === "china365") {
+        let server: string | undefined;
+        if (selectedProvider === "outlook") {
+          server = "https://outlook.office365.com/EWS/Exchange.asmx";
+        } else if (selectedProvider === "china365") {
+          // 用户可手动输入 EWS 地址，留空则使用世纪互联默认端点
+          server = fieldValues.server?.trim() || "https://partner.outlook.cn/EWS/Exchange.asmx";
+        } else {
+          server = fieldValues.server || undefined;
+        }
         await configureExchange({
-          server: selectedProvider === "outlook"
-            ? "https://outlook.office365.com/EWS/Exchange.asmx"
-            : selectedProvider === "china365"
-            ? "https://partner.outlook.cn/EWS/Exchange.asmx"
-            : fieldValues.server || undefined,
+          server,
           email: fieldValues.email,
           password: fieldValues.password,
           auth_type: fieldValues.auth_type || "ntlm",
@@ -208,7 +213,7 @@ export default function InboxPage() {
                 </p>
               ) : selectedProvider === "china365" ? (
                 <p className="text-[11px] text-[#9b9b9b] mt-3">
-                  💡 世纪互联 Microsoft 365 使用 EWS 协议，端点为 <code className="text-[#5e5e5e]">partner.outlook.cn</code>。
+                  💡 支持世纪互联 M365 云服务（留空使用 <code className="text-[#5e5e5e]">partner.outlook.cn</code>）或 自建 Exchange 服务器（填写自己的 EWS 地址）。
                 </p>
               ) : (
                 <p className="text-[11px] text-[#9b9b9b] mt-3">
