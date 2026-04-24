@@ -12,8 +12,13 @@ function getBaseUrl(): string {
 }
 
 const api = axios.create({
-  baseURL: getBaseUrl(),
   timeout: 15000,
+});
+
+// 每次请求前动态设置 baseURL（解决 SSR 阶段 axios 实例缓存 localhost 的问题）
+api.interceptors.request.use((config) => {
+  config.baseURL = getBaseUrl();
+  return config;
 });
 
 // Map backend snake_case response to frontend camelCase Task type
@@ -30,8 +35,8 @@ function mapTask(raw: Record<string, unknown>): Task {
 }
 
 export async function fetchTasks(): Promise<Task[]> {
-  const res = await api.get<Record<string, unknown>>("/api/v1/tasks");
-  return res.data.map(mapTask);
+  const res = await api.get<unknown[]>("/api/v1/tasks");
+  return (res.data as Record<string, unknown>[]).map(mapTask);
 }
 
 export async function createTask(data: {
@@ -70,8 +75,8 @@ export interface Email {
 }
 
 export async function getEmails(): Promise<Email[]> {
-  const res = await api.get<Record<string, unknown>>("/api/v1/emails/");
-  return res.data.map((raw: Record<string, unknown>) => ({
+  const res = await api.get<unknown[]>("/api/v1/emails/");
+  return (res.data as Record<string, unknown>[]).map((raw: Record<string, unknown>) => ({
     id: String(raw.id),
     subject: (raw.subject as string) || "",
     sender: (raw.sender as string) || "",
@@ -92,6 +97,7 @@ export async function configureExchange(data: {
   password: string;
   auth_type?: string;
   limit?: number;
+  provider?: string; // exchange, china365, outlook
 }): Promise<{ status: string; email: string }> {
   const res = await api.post<Record<string, unknown>>("/api/v1/emails/configure/exchange", data);
   return { status: res.data.status as string, email: res.data.email as string };
@@ -108,8 +114,8 @@ export interface Note {
 }
 
 export async function getNotes(): Promise<Note[]> {
-  const res = await api.get<Record<string, unknown>>("/api/v1/notes/");
-  return res.data.map((raw: Record<string, unknown>) => ({
+  const res = await api.get<unknown[]>("/api/v1/notes/");
+  return (res.data as Record<string, unknown>[]).map((raw: Record<string, unknown>) => ({
     id: String(raw.id),
     title: (raw.title as string) || "",
     content: (raw.content as string) || "",

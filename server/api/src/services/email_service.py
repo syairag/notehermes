@@ -16,6 +16,75 @@ M365_GLOBAL_SMTP_HOST = "smtp.office365.com"
 M365_GLOBAL_GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 
 
+class GraphAPIService:
+    """Microsoft Graph API adapter — supports OAuth2 authenticated email access."""
+
+    def __init__(self, access_token: str, is_china: bool = True):
+        self.access_token = access_token
+        self.graph_base = M365_GRAPH_BASE if is_china else M365_GLOBAL_GRAPH_BASE
+
+    def _headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+
+    def fetch_emails(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Fetch recent emails via Graph API."""
+        import httpx
+        url = f"{self.graph_base}/me/mailFolders/inbox/messages"
+        params = {
+            "$top": limit,
+            "$select": "id,subject,from,receivedDateTime,hasAttachments,isRead,bodyPreview",
+            "$orderby": "receivedDateTime desc",
+        }
+        response = httpx.get(url, headers=self._headers(), params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        emails_list = []
+        for msg in data.get("value", []):
+            sender = msg.get("from", {})
+            email_addr = sender.get("emailAddress", {})
+            sender_name = email_addr.get("name", "")
+            sender_email = email_addr.get("address", "")
+            sender_str = f"{sender_name} <{sender_email}>" if sender_name else sender_email
+
+            emails_list.append({
+                "id": msg.get("id", ""),
+                "subject": msg.get("subject") or "(无主题)",
+                "sender": sender_str,
+                "sender_name": sender_name,
+                "date": msg.get("receivedDateTime", ""),
+                "body_preview": msg.get("bodyPreview", ""),
+                "has_attachments": msg.get("hasAttachments", False),
+                "is_read": msg.get("isRead", False),
+            })
+
+        return emails_list
+
+    def mark_as_read(self, message_id: str) -> bool:
+        """Mark an email as read via Graph API."""
+        import httpx
+        url = f"{self.graph_base}/me/messages/{message_id}"
+        response = httpx.patch(
+            url,
+            headers=self._headers(),
+            json={"isRead": True},
+        )
+        return response.status_code == 200
+
+    def get_user_info(self) -> dict:
+        """Get current user info."""
+        import httpx
+        response = httpx.get(
+            f"{self.graph_base}/me",
+            headers=self._headers(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 class ExchangeService:
     """Exchange Web Services (EWS) adapter — for on-premises Exchange and Exchange Online."""
 

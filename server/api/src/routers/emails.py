@@ -16,6 +16,19 @@ class ExchangeSyncRequest(BaseModel):
     password: str
     auth_type: Optional[str] = "ntlm"  # ntlm / basic / digest
     limit: Optional[int] = 20
+    provider: Optional[str] = "exchange"  # exchange, china365, outlook
+
+
+class IMAPConfigRequest(BaseModel):
+    provider: str  # gmail, qq, netease, imap
+    email: str
+    password: Optional[str] = None
+    imap_host: Optional[str] = None
+    imap_port: Optional[int] = None
+    # OAuth2 fields
+    tenant_id: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
 
 
 @router.get("/", response_model=List[EmailResponse])
@@ -31,12 +44,31 @@ async def get_email(email_id: str):
 
 @router.post("/sync")
 async def sync_emails():
-    """Sync emails via EWS (Exchange Web Services)."""
+    """Sync emails via EWS (Exchange Web Services) or Graph API (OAuth2)."""
     if not _exchange_config:
+        # Check for OAuth2 token
+        from src.services.oauth2_service import get_valid_token, GraphAPIService
+        token_data = get_valid_token()
+        if token_data:
+            try:
+                graph = GraphAPIService(token_data.access_token, is_china=True)
+                emails = graph.fetch_emails(limit=20)
+                return {
+                    "status": "success",
+                    "provider": "china365_oauth2",
+                    "synced": len(emails),
+                    "emails": emails,
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "synced": 0,
+                    "message": f"Graph API 同步失败: {str(e)}",
+                }
         return {
             "status": "no_config",
             "synced": 0,
-            "message": "请先在邮箱设置中配置 Exchange 账户",
+            "message": "请先在邮箱设置中配置您的邮箱账户",
         }
 
     provider = _exchange_config.get("provider")
@@ -86,7 +118,7 @@ async def sync_emails():
 async def configure_exchange(config: ExchangeSyncRequest):
     """Save Exchange server configuration for subsequent syncs."""
     _exchange_config.update({
-        "provider": "exchange",
+        "provider": config.provider or "exchange",
         "server": config.server,
         "email": config.email,
         "password": config.password,
@@ -94,6 +126,19 @@ async def configure_exchange(config: ExchangeSyncRequest):
         "limit": config.limit,
     })
     return {"status": "configured", "email": config.email}
+
+
+@router.post("/configure/imap")
+async def configure_imap(config: IMAPConfigRequest):
+    """Save IMAP configuration for subsequent syncs."""
+    _exchange_config.update({
+        "provider": config.provider,
+        "email": config.email,
+        "password": config.password,
+        "imap_host": config.imap_host,
+        "imap_port": config.imap_port,
+    })
+    return {"status": "configured", "email": config.email, "provider": config.provider}
 
 
 @router.post("/summarize/{email_id}")

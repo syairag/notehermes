@@ -5,7 +5,7 @@ import { getEmails, syncEmails, configureExchange, type Email } from "@/lib/api"
 
 const emailProviders = [
   { id: "exchange", name: "Microsoft Exchange", icon: "🏢", desc: "企业自建 Exchange 服务器 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.com" }, { key: "server", label: "EWS 地址", type: "text", placeholder: "https://mail.company.com/EWS/Exchange.asmx" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }, { key: "auth_type", label: "认证方式", type: "select", placeholder: "ntlm", options: ["ntlm", "basic", "digest"] }] },
-  { id: "china365", name: "世纪互联 Microsoft 365", icon: "🇨🇳", desc: "国内版 Exchange Online (EWS)", fields: [{ key: "email", label: "企业邮箱", type: "email", placeholder: "you@company.partner.onmschina.cn" }, { key: "password", label: "密码", type: "password", placeholder: "企业账号密码" }] },
+  { id: "china365", name: "世纪互联 Microsoft 365", icon: "🇨🇳", desc: "国内版 Microsoft 365 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@company.partner.onmschina.cn" }, { key: "password", label: "密码", type: "password", placeholder: "域账号密码" }] },
   { id: "outlook", name: "Microsoft 365 国际版", icon: "🔵", desc: "Exchange Online 国际版 (EWS)", fields: [{ key: "email", label: "邮箱地址", type: "email", placeholder: "you@outlook.com" }, { key: "password", label: "应用密码", type: "password", placeholder: "在 Microsoft 账户中生成" }] },
   { id: "gmail", name: "Google Gmail", icon: "🔴", desc: "个人 Gmail 邮箱", fields: [{ key: "email", label: "Gmail 地址", type: "email", placeholder: "you@gmail.com" }, { key: "password", label: "应用专用密码", type: "password", placeholder: "Google 账户 → 安全性 → 应用专用密码" }] },
   { id: "qq", name: "QQ 邮箱", icon: "🟡", desc: "QQ / Foxmail 邮箱", fields: [{ key: "email", label: "QQ 邮箱", type: "email", placeholder: "your_qq@qq.com" }, { key: "password", label: "授权码", type: "password", placeholder: "设置 → 账户 → IMAP/SMTP 开启 → 获取授权码" }] },
@@ -40,6 +40,7 @@ export default function InboxPage() {
   };
 
   const handleSaveConfig = async () => {
+    setError(null); // 清除旧错误
     if (!fieldValues.email || !fieldValues.password) {
       setError("请填写邮箱地址和密码");
       return;
@@ -47,25 +48,38 @@ export default function InboxPage() {
     setSaveStatus("saving");
     try {
       // All Exchange-based providers go through the same EWS endpoint
-      if (selectedProvider === "exchange" || selectedProvider === "china365" || selectedProvider === "outlook") {
+      if (selectedProvider === "exchange" || selectedProvider === "outlook" || selectedProvider === "china365") {
         await configureExchange({
-          server: selectedProvider === "china365"
+          server: selectedProvider === "outlook"
+            ? "https://outlook.office365.com/EWS/Exchange.asmx"
+            : selectedProvider === "china365"
             ? "https://partner.outlook.cn/EWS/Exchange.asmx"
-            : selectedProvider === "outlook"
-              ? "https://outlook.office365.com/EWS/Exchange.asmx"
-              : fieldValues.server || undefined,
+            : fieldValues.server || undefined,
           email: fieldValues.email,
           password: fieldValues.password,
           auth_type: fieldValues.auth_type || "ntlm",
+          provider: selectedProvider,
         });
-        setSaveStatus("ok");
-        setTimeout(() => setSaveStatus("idle"), 3000);
-      } else {
-        setSaveStatus("ok");
-        setTimeout(() => setSaveStatus("idle"), 2000);
+      } else if (selectedProvider === "gmail" || selectedProvider === "qq" || selectedProvider === "netease" || selectedProvider === "imap") {
+        // IMAP-based providers also need to be saved to backend
+        await fetch(`${window.location.protocol}//${window.location.hostname}:8000/api/v1/emails/configure/imap`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: selectedProvider,
+            email: fieldValues.email,
+            password: fieldValues.password,
+            imap_host: fieldValues.imap_host || undefined,
+            imap_port: fieldValues.imap_port ? parseInt(fieldValues.imap_port) : undefined,
+          }),
+        });
       }
-    } catch {
-      setError("保存配置失败");
+      setSaveStatus("ok");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "未知错误";
+      console.error("保存配置失败:", err);
+      setError(`保存配置失败: ${msg}`);
       setSaveStatus("idle");
     }
   };
@@ -141,58 +155,60 @@ export default function InboxPage() {
           {/* Provider Config Form */}
           {currentProvider && (
             <div className="bg-white border border-[#e9e9e7] rounded-lg p-4">
-              <h4 className="text-sm font-medium text-[#1d1d1f] mb-3 flex items-center gap-2">
-                <span>{currentProvider.icon}</span>
-                配置 {currentProvider.name}
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {currentProvider.fields.map((f) => (
-                  <div key={f.key}>
-                    <label className="block text-xs text-[#9b9b9b] mb-1">{f.label}</label>
-                    {f.type === "select" ? (
-                      <select
-                        value={fieldValues[f.key] || f.placeholder}
-                        onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
-                        className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
-                      >
-                        {f.options?.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={f.type}
-                        value={fieldValues[f.key] || ""}
-                        onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
-                        placeholder={f.placeholder}
-                        className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={handleSaveConfig}
-                  className="bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
-                >
-                  {saveStatus === "saving" ? "保存中..." : saveStatus === "ok" ? "✅ 已保存" : "保存配置"}
-                </button>
-                <button onClick={() => setShowSettings(false)} className="text-[#5e5e5e] hover:text-[#1d1d1f] px-3 py-1.5 rounded-md text-sm transition-colors">
-                  取消
-                </button>
-              </div>
-              {currentProvider.id === "exchange" ? (
+              <>
+                <h4 className="text-sm font-medium text-[#1d1d1f] mb-3 flex items-center gap-2">
+                  <span>{currentProvider.icon}</span>
+                  配置 {currentProvider.name}
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {currentProvider.fields.map((f) => (
+                    <div key={f.key}>
+                      <label className="block text-xs text-[#9b9b9b] mb-1">{f.label}</label>
+                      {f.type === "select" ? (
+                        <select
+                          value={fieldValues[f.key] || f.placeholder}
+                          onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
+                        >
+                          {f.options?.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={f.type}
+                          value={fieldValues[f.key] || ""}
+                          onChange={(e) => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={f.placeholder}
+                          className="w-full px-3 py-2 border border-[#e9e9e7] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#1d1d1f] focus:border-[#1d1d1f] bg-[#fafaf9]"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={handleSaveConfig}
+                    className="bg-[#1d1d1f] hover:bg-[#2d2d2f] text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+                  >
+                    {saveStatus === "saving" ? "保存中..." : saveStatus === "ok" ? "✅ 已保存" : "保存配置"}
+                  </button>
+                  <button onClick={() => setShowSettings(false)} className="text-[#5e5e5e] hover:text-[#1d1d1f] px-3 py-1.5 rounded-md text-sm transition-colors">
+                    取消
+                  </button>
+                </div>
+              </>
+              {selectedProvider === "exchange" ? (
                 <p className="text-[11px] text-[#9b9b9b] mt-3">
                   💡 Exchange 使用 EWS 协议，支持 NTLM / Basic / Digest 认证。EWS 地址留空将尝试自动发现。
                 </p>
-              ) : currentProvider.id === "china365" ? (
-                <p className="text-[11px] text-[#9b9b9b] mt-3">
-                  💡 世纪互联邮箱使用 EWS 协议，端点为 <code className="text-[#5e5e5e]">partner.outlook.cn</code>。无需手动配置服务器地址。
-                </p>
-              ) : currentProvider.id === "outlook" ? (
+              ) : selectedProvider === "outlook" ? (
                 <p className="text-[11px] text-[#9b9b9b] mt-3">
                   💡 国际版 Microsoft 365 使用 EWS 协议，端点为 <code className="text-[#5e5e5e]">outlook.office365.com</code>。
+                </p>
+              ) : selectedProvider === "china365" ? (
+                <p className="text-[11px] text-[#9b9b9b] mt-3">
+                  💡 世纪互联 Microsoft 365 使用 EWS 协议，端点为 <code className="text-[#5e5e5e]">partner.outlook.cn</code>。
                 </p>
               ) : (
                 <p className="text-[11px] text-[#9b9b9b] mt-3">
